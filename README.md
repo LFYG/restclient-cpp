@@ -72,7 +72,8 @@ request.followRedirects 	= false;
 request.headers["User-Agent"] 	= "Mozilla/5.0";
 request.headers["Cookies"] 	= "name=value;";
 
-RestClient::Response response 	= RestClient::post("http://www.baidu.com/post.php", "text/json", "{\"foo\": \"bla\"}", &request);
+RestClient::Response response 	= RestClient::post("http://www.baidu.com/post.php", 
+                                  "text/json", "{\"foo\": \"bla\"}",&request);
 
 printf("%s \n", response.body.c_str());
 printf("%d \n", response.code);
@@ -80,3 +81,7 @@ printf("%s \n", response.cookies.c_str());
 printf("%s \n", response.headers["Content-Type"].c_str());
 printf("%s \n", response.headers["Content-Length"].c_str());
 ```
+### TODO
+1.  http proxy
+2.  upload file
+3.  authentication
