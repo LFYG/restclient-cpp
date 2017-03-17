@@ -47,35 +47,36 @@ timeouts or request headers, there is also a different, more configurable way.
 ```cpp
 RestClient::Request request;
 
-	request.timeout = 3000;
-	request.followRedirects = false;
-	request.headers["User-Agent"]	= "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36";
-	request.headers["Cookies"]		= "name=value;";
+request.timeout 		= 3000;
+request.followRedirects 	= false;
+request.headers["User-Agent"]	= "Mozilla/5.0";
+request.headers["Cookies"]	= "name=value;";
 
-	RestClient::Response response = RestClient::get("http://www.baidu.com", &request);
+RestClient::Response response	= RestClient::get("http://www.baidu.com", &request);
 
-	printf("%s \n", response.body.c_str());
-	printf("%d \n", response.code);
-	printf("%s \n", response.cookies.c_str());
-	printf("%s %s \n", response.Cookie["BAIDUID"].c_str(), response.get_cookie("BAIDUID").c_str());
-	printf("%s %s \n", response.headers["Location"].c_str(), response.get_header("Location").c_str());
-	printf("%s %s \n", response.headers["Content-Type"].c_str(), response.get_header("Content-Type").c_str());
-	printf("%s %s \n", response.headers["Content-Length"].c_str(), response.get_header("Content-Length").c_str());
+printf("%s \n", response.body.c_str());
+printf("%d \n", response.code);
+printf("%s \n", response.cookies.c_str());
+printf("%s %s \n", response.Cookie["BAIDUID"].c_str(), response.get_cookie("BAIDUID").c_str());
+printf("%s %s \n", response.headers["Location"].c_str(), response.get_header("Location").c_str());
+printf("%s %s \n", response.headers["Content-Type"].c_str(), response.get_header("Content-Type").c_str());
+printf("%s %s \n", response.headers["Content-Length"].c_str(), response.get_header("Content-Length").c_str());
 ```
 
 #### POST simple
 ```cpp
 RestClient::Request request;
-	request.timeout = 3000;
-	request.followRedirects = false;
-	request.headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36";
-	request.headers["Cookies"] = "name=value;";
 
-	RestClient::Response response = RestClient::post("http://www.baidu.com/xxx.php?a=123456", "text/json", "{\"foo\": \"bla\"}", &request);
+request.timeout 		= 3000;
+request.followRedirects 	= false;
+request.headers["User-Agent"] 	= "Mozilla/5.0";
+request.headers["Cookies"] 	= "name=value;";
 
-	printf("%s \n", response.body.c_str());
-	printf("%d \n", response.code);
-	printf("%s \n", response.cookies.c_str());
-	printf("%s \n", response.headers["Content-Type"].c_str());
-	printf("%s \n", response.headers["Content-Length"].c_str());
+RestClient::Response response 	= RestClient::post("http://www.baidu.com/post.php", "text/json", "{\"foo\": \"bla\"}", &request);
+
+printf("%s \n", response.body.c_str());
+printf("%d \n", response.code);
+printf("%s \n", response.cookies.c_str());
+printf("%s \n", response.headers["Content-Type"].c_str());
+printf("%s \n", response.headers["Content-Length"].c_str());
 ```
