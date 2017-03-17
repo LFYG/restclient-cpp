@@ -1,11 +1,9 @@
 # REST client for C++
-[![Build Status](https://travis-ci.org/LowBoyTeam/restclient-cpp.svg?branch=master)](https://travis-ci.org/LowBoyTeam/restclient-cpp)
-[![Coverage Status](https://coveralls.io/repos/LowBoyTeam/restclient-cpp/badge.svg?branch=master&service=github)](https://coveralls.io/github/LowBoyTeam/restclient-cpp?branch=master)
 [![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](http://opensource.org/licenses/MIT)
 
 
 ## About
-This is a simple REST client for C++. It wraps winnet for HTTP requests.
+This is a simple REST client for C++. It wraps winnet for http/https requests.
 
 ## Usage
 restclient-cpp provides two ways of interacting with REST endpoints. There is
@@ -28,15 +26,56 @@ RestClient::Response r = RestClient::del("http://url.com/delete")
 RestClient::Response r = RestClient::head("http://url.com")
 ```
 
-The response is of type [RestClient::Response][restclient_response] and has
+The response is of type RestClient::Response and has
 three attributes:
 
 ```cpp
 RestClient::Response.code // HTTP response code
 RestClient::Response.body // HTTP response body
-RestClient::Response.headers // HTTP response headers
+RestClient::Response.headers // HTTP response headers,The type is map
+RestClient::Response.cookies // HTTP response cookies,The type is string
+RestClient::Response.cookie // HTTP response cookies,The type is map
+RestClient::Response.get_header //It can be used to get the specified header value
+RestClient::Response.get_cookie //It can be used to get the specified cookie value
 ```
 
 ### Advanced Usage
-However if you want more sophisticated features like connection reuse,
-timeouts or authentication, there is also a different, more configurable way.
+However if you want more sophisticated features,
+timeouts or request headers, there is also a different, more configurable way.
+
+#### GET simple
+```cpp
+RestClient::Request request;
+
+	request.timeout = 3000;
+	request.followRedirects = false;
+	request.headers["User-Agent"]	= "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36";
+	request.headers["Cookies"]		= "name=value;";
+
+	RestClient::Response response = RestClient::get("http://www.baidu.com", &request);
+
+	printf("%s \n", response.body.c_str());
+	printf("%d \n", response.code);
+	printf("%s \n", response.cookies.c_str());
+	printf("%s %s \n", response.Cookie["BAIDUID"].c_str(), response.get_cookie("BAIDUID").c_str());
+	printf("%s %s \n", response.headers["Location"].c_str(), response.get_header("Location").c_str());
+	printf("%s %s \n", response.headers["Content-Type"].c_str(), response.get_header("Content-Type").c_str());
+	printf("%s %s \n", response.headers["Content-Length"].c_str(), response.get_header("Content-Length").c_str());
+```
+
+#### POST simple
+```cpp
+RestClient::Request request;
+	request.timeout = 3000;
+	request.followRedirects = false;
+	request.headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36";
+	request.headers["Cookies"] = "name=value;";
+
+	RestClient::Response response = RestClient::post("http://www.baidu.com/xxx.php?a=123456", "text/json", "{\"foo\": \"bla\"}", &request);
+
+	printf("%s \n", response.body.c_str());
+	printf("%d \n", response.code);
+	printf("%s \n", response.cookies.c_str());
+	printf("%s \n", response.headers["Content-Type"].c_str());
+	printf("%s \n", response.headers["Content-Length"].c_str());
+```
