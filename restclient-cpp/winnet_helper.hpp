@@ -13,9 +13,11 @@
 #include <vector>
 #include <map>
 #include <regex>
+#include <assert.h>
 
 #include <windows.h>
 #include <strsafe.h>
+
 #include <wininet.h>
 #pragma comment(lib,"Wininet.lib")
 
@@ -48,11 +50,16 @@ namespace winnet
 		INTERNET_SCHEME		m_nScheme;
 		INTERNET_PORT		m_nPort;
 
-		bool				m_followRedirects;
-
+		BOOL				m_followRedirects;
 		HeaderFields		m_RequestHeaders;
-
 		std::string			m_request_method;
+
+		std::string			m_proxy_info;
+		std::string			m_proxy_user;
+		std::string			m_proxy_pass;
+
+		std::string			m_basic_auth_user;
+		std::string			m_basic_auth_pass;
 
 		Cookies ParseCookies(const std::string& cookies)
 		{
@@ -76,6 +83,7 @@ namespace winnet
 		}
 
 	public:
+		
 		CWinNet(void) : m_hSession(NULL)
 			, m_hConnect(NULL)
 			, m_hRequest(NULL)
@@ -86,50 +94,70 @@ namespace winnet
 
 		~CWinNet()
 		{
-			if (m_hRequest) InternetCloseHandle(m_hRequest);
-			if (m_hConnect) InternetCloseHandle(m_hConnect);
-			if (m_hSession) InternetCloseHandle(m_hSession);
+			if (m_hRequest)
+			{
+				InternetCloseHandle(m_hRequest);
+				m_hRequest = NULL;
+			}
+			if (m_hConnect)
+			{
+				InternetCloseHandle(m_hConnect);
+				m_hConnect = NULL;
+			}
+			if (m_hSession)
+			{
+				InternetCloseHandle(m_hSession);
+				m_hSession = NULL;
+			}
 		}
 
 		BOOL Open(const std::string& Url, const std::string& method)
 		{
-			m_hSession = InternetOpenA("winnet http client v1.0", INTERNET_OPEN_TYPE_PRECONFIG, NULL, NULL, NULL);
-			if (!m_hSession) return FALSE;
+			m_hSession = InternetOpenA("winnet http client v1.0", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, NULL);
+			
+			if (!m_hSession)
+			{
+				printf("Error %u in InternetOpenA.\n", GetLastError());
+				return FALSE;
+			}
 
-			m_request_method = method;
-
-			// Initialize the URL_COMPONENTS structure.
 			URL_COMPONENTSA urlComp;
 			ZeroMemory(&urlComp, sizeof(urlComp));
-			urlComp.dwStructSize = sizeof(urlComp);
+			urlComp.dwStructSize			= sizeof(urlComp);
+			urlComp.dwHostNameLength		= 1;
+			urlComp.dwUserNameLength		= 1;
+			urlComp.dwPasswordLength		= 1;
+			urlComp.dwUrlPathLength			= 1;
+			urlComp.dwExtraInfoLength		= 1;
 
-			// The case where lpszHostName is NULL and dwHostNameLength is non-0 means
-			// to return pointers into the passed in URL along with lengths. The 
-			// specific non-zero value is irrelevant
-			urlComp.dwHostNameLength = 1;
-			urlComp.dwUserNameLength = 1;
-			urlComp.dwPasswordLength = 1;
-			urlComp.dwUrlPathLength = 1;
-			urlComp.dwExtraInfoLength = 1;
+			if (!InternetCrackUrlA(Url.c_str(), 0, 0, &urlComp))
+			{
+				printf("Error %u in InternetCrackUrlA.\n", GetLastError());
+				return FALSE;
+			}
 
-			BOOL bRet	= InternetCrackUrlA(Url.c_str(), 0, 0, &urlComp);
-
-			m_strHost	= std::string(urlComp.lpszHostName, urlComp.dwHostNameLength);
-			m_strPath	= std::string(urlComp.lpszUrlPath, urlComp.dwUrlPathLength);
-			m_strExt	= std::string(urlComp.lpszExtraInfo, urlComp.dwExtraInfoLength);
-			m_nScheme	= urlComp.nScheme;
-			m_nPort		= urlComp.nPort;
-
+			m_strHost = std::string(urlComp.lpszHostName, urlComp.dwHostNameLength);
+			m_strPath = std::string(urlComp.lpszUrlPath, urlComp.dwUrlPathLength);
+			m_strExt = std::string(urlComp.lpszExtraInfo, urlComp.dwExtraInfoLength);
+			m_nScheme = urlComp.nScheme;
+			m_nPort = urlComp.nPort;
 			m_strPath.append(m_strExt);
+			m_request_method = method;
 
-			return bRet;
+			return TRUE;
 		}
 
-		void SetTimeout(DWORD dwTimeOut)
+		BOOL SetTimeout(DWORD dwTimeOut)
 		{
-			InternetSetOptionA(m_hSession, INTERNET_OPTION_CONNECT_TIMEOUT, &dwTimeOut, sizeof(dwTimeOut));
-			InternetSetOptionA(m_hSession, INTERNET_OPTION_SEND_TIMEOUT, &dwTimeOut, sizeof(dwTimeOut));
-			InternetSetOptionA(m_hSession, INTERNET_OPTION_RECEIVE_TIMEOUT, &dwTimeOut, sizeof(dwTimeOut));
+			assert(m_hSession != NULL);
+
+			if (InternetSetOptionA(m_hSession, INTERNET_OPTION_CONNECT_TIMEOUT, &dwTimeOut, sizeof(dwTimeOut))
+				&& InternetSetOptionA(m_hSession, INTERNET_OPTION_SEND_TIMEOUT, &dwTimeOut, sizeof(dwTimeOut))
+				&& InternetSetOptionA(m_hSession, INTERNET_OPTION_RECEIVE_TIMEOUT, &dwTimeOut, sizeof(dwTimeOut)))
+			{
+				return TRUE;
+			}
+			return FALSE;
 		}
 
 		void SetRequestHeader(const std::string& key, const std::string& value)
@@ -156,53 +184,122 @@ namespace winnet
 			SetRequestHeader("Referer", referer);
 		}
 
-		void FollowRedirects(bool follow)
+		void FollowRedirects(BOOL follow)
 		{
 			m_followRedirects = follow;
 		}
 
 		BOOL Send(LPVOID lpPostData = NULL, DWORD dwsize = 0)
 		{
+			assert(m_hSession != NULL);
+
 			m_hConnect = InternetConnectA(m_hSession, m_strHost.c_str(), m_nPort, NULL, NULL, INTERNET_SERVICE_HTTP, NULL, NULL);
 
-			if (!m_hConnect) return FALSE;
+			if (!m_hConnect)
+			{
+				printf("Error %u in InternetConnectA.\n", GetLastError());
+				return FALSE;
+			}
 
-			//强制请求最新文件,不使用缓存,不使用本地Cookies
-			DWORD dwFlags = INTERNET_FLAG_RELOAD | INTERNET_COOKIE_THIRD_PARTY | INTERNET_FLAG_NO_COOKIES | INTERNET_FLAG_NO_CACHE_WRITE;
+			if (!m_basic_auth_user.empty() && !m_basic_auth_pass.empty())
+			{
+				if (!InternetSetOptionA(m_hConnect, INTERNET_OPTION_USERNAME, (LPVOID)m_basic_auth_user.c_str(), m_basic_auth_user.size() + 1))
+				{
+					printf("Error %u in InternetSetOptionA. INTERNET_OPTION_USERNAME \n", GetLastError());
+					return FALSE;
+				}
+				if (!InternetSetOptionA(m_hConnect, INTERNET_OPTION_PASSWORD, (LPVOID)m_basic_auth_pass.c_str(), m_basic_auth_pass.size() + 1))
+				{
+					printf("Error %u in InternetSetOptionA. INTERNET_OPTION_PASSWORD \n", GetLastError());
+					return FALSE;
+				}
+			}
 
-			//忽略因服务器的证书主机名与请求的主机名不匹配所导致的错误,忽略由已失效的服务器证书导致的错误
-			dwFlags = dwFlags | INTERNET_FLAG_IGNORE_CERT_CN_INVALID | INTERNET_FLAG_IGNORE_CERT_DATE_INVALID;
+			if (!m_proxy_info.empty())
+			{
+				INTERNET_PROXY_INFO proxyInfo;
+				proxyInfo.dwAccessType = INTERNET_OPEN_TYPE_PROXY;
+				proxyInfo.lpszProxy = reinterpret_cast<LPCTSTR>(m_proxy_info.c_str());
+				proxyInfo.lpszProxyBypass = NULL;
+
+				if (!InternetSetOptionA(m_hSession, INTERNET_OPTION_PROXY, (LPVOID)&proxyInfo, sizeof(proxyInfo)))
+				{
+					printf("Error %u in InternetSetOptionA. INTERNET_OPTION_PROXY \n", GetLastError());
+					return FALSE;
+				}
+
+				if (!m_proxy_user.empty() && !m_proxy_pass.empty())
+				{
+					if (!InternetSetOptionA(m_hConnect, INTERNET_OPTION_PROXY_USERNAME, (LPVOID)m_proxy_user.c_str(), m_proxy_user.size() + 1))
+					{
+						printf("Error %u in InternetSetOptionA. INTERNET_OPTION_PROXY_USERNAME \n", GetLastError());
+						return FALSE;
+					}
+					if (!InternetSetOptionA(m_hConnect, INTERNET_OPTION_PROXY_PASSWORD, (LPVOID)m_proxy_pass.c_str(), m_proxy_pass.size() + 1))
+					{
+						printf("Error %u in InternetSetOptionA. INTERNET_OPTION_PROXY_PASSWORD \n", GetLastError());
+						return FALSE;
+					}
+				}
+			}
+
+			DWORD dwFlags = INTERNET_FLAG_HYPERLINK
+				| INTERNET_FLAG_KEEP_CONNECTION//Uses keep-alive semantics, if available, for the connection.
+				| INTERNET_FLAG_NO_UI//Disables the cookie dialog box.
+				| INTERNET_FLAG_RESYNCHRONIZE//Reloads HTTP resources if the resource has been modified since the last time it was downloaded.
+				| INTERNET_FLAG_NO_CACHE_WRITE//Does not add the returned entity to the cache.
+				| INTERNET_FLAG_PRAGMA_NOCACHE//Forces the request to be resolved by the origin server, even if a cached copy exists on the proxy. 
+				| INTERNET_FLAG_RELOAD//Forces a download of the requested file, object, or directory listing from the origin server, not from the cache. 
+				| INTERNET_COOKIE_THIRD_PARTY//Indicates that a third-party cookie is being set or retrieved.
+				| INTERNET_FLAG_NO_COOKIES//Does not use local cookies.
+				| INTERNET_FLAG_IGNORE_CERT_CN_INVALID//Disable checking of SSL certificates errors.
+				| INTERNET_FLAG_IGNORE_CERT_DATE_INVALID//Disable checking of SSL certificates errors.
+				| INTERNET_FLAG_DONT_CACHE;
 
 			if (m_nScheme == INTERNET_SCHEME_HTTPS)
 				dwFlags = dwFlags | INTERNET_FLAG_SECURE;//SSL
+			else
+				dwFlags = dwFlags | INTERNET_FLAG_IGNORE_REDIRECT_TO_HTTPS;
 
-			if (!m_followRedirects)
-				dwFlags = dwFlags | INTERNET_FLAG_NO_AUTO_REDIRECT;//禁止重定向
+			if (m_followRedirects == FALSE)
+				dwFlags = dwFlags | INTERNET_FLAG_NO_AUTO_REDIRECT;//Does not automatically handle redirection in HttpSendRequest.
 
 			m_hRequest = HttpOpenRequestA(m_hConnect, m_request_method.c_str(), m_strPath.c_str(), "HTTP/1.1", NULL, NULL, dwFlags, NULL);
 
-			if (!m_hRequest) return FALSE;
+			if (!m_hRequest)
+			{
+				printf("Error %u in HttpOpenRequestA.\n", GetLastError());
+				return FALSE;
+			}
 
-			//启用gzip自动解压,可以加快速度
+			//Enables WinINet to perform decoding for the gzip and deflate encoding schemes. For more information
 			DWORD dwGzip = 1;
 			InternetSetOptionW(m_hRequest, INTERNET_OPTION_HTTP_DECODING, &dwGzip, sizeof(dwGzip));
 
 			std::string strHeaders;
-			for (HeaderFields::iterator iter = m_RequestHeaders.begin(); iter != m_RequestHeaders.end(); iter++)
+			for (auto &k : m_RequestHeaders)
+				strHeaders.append(k.first).append(": ").append(k.second).append("\n");
+
+			if (!HttpAddRequestHeadersA(m_hRequest, strHeaders.c_str(), -1, HTTP_ADDREQ_FLAG_ADD | HTTP_ADDREQ_FLAG_REPLACE))
 			{
-				strHeaders.append(iter->first);
-				strHeaders.append(": ");
-				strHeaders.append(iter->second);
-				strHeaders.append("\n");
+				printf("Error %u in HttpAddRequestHeadersA.\n", GetLastError());
+				return FALSE;
 			}
 
 			m_RequestHeaders.clear();
 
-			return HttpSendRequestA(m_hRequest, strHeaders.c_str(), strHeaders.size(), lpPostData, dwsize);
+			if (!HttpSendRequestA(m_hRequest, NULL, 0, lpPostData, dwsize))
+			{
+				printf("Error %u in HttpSendRequestA.\n", GetLastError());
+				return FALSE;
+			}
+			return TRUE;
 		}
 
 		std::vector<BYTE> GetResponseBody()
 		{
+			assert(m_hRequest != NULL);
+
 			DWORD dwReadSize = 0;
 			DWORD dwDownloaded = 0;
 
@@ -262,6 +359,8 @@ namespace winnet
 
 		std::string GetResponseHeaderValue(const std::string& name)
 		{
+			assert(m_hRequest != NULL);
+
 			std::string	result;
 
 			DWORD			dwSize			= name.length() + 1;
@@ -304,7 +403,10 @@ namespace winnet
 
 		std::string GetResponseHeaderValue(int dwInfoLevel, DWORD dwIndex = NULL)
 		{
+			assert(m_hRequest != NULL);
+
 			std::string		result;
+
 			LPVOID			lpOutBuffer = NULL;
 			DWORD			dwSize = 0;
 
@@ -362,6 +464,8 @@ namespace winnet
 
 		DWORD GetStatusCode()
 		{
+			assert(m_hRequest != NULL);
+
 			DWORD dwStatusCode;
 			DWORD dwSize = sizeof(DWORD);
 			HttpQueryInfoA(m_hRequest, HTTP_QUERY_STATUS_CODE | HTTP_QUERY_FLAG_NUMBER, &dwStatusCode, &dwSize, NULL);
@@ -410,6 +514,18 @@ namespace winnet
 			return result;
 		}
 
+		void SetBasicAuthenticator(const std::string& username, const std::string& password)
+		{
+			this->m_basic_auth_user = username;
+			this->m_basic_auth_pass = password;
+		}
+
+		void SetProxy(const std::string& proxy, const std::string& proxyName = "", const std::string& proxyPass = "")
+		{
+			this->m_proxy_info		= proxy;
+			this->m_proxy_user		= proxyName;
+			this->m_proxy_pass		= proxyPass;
+		}
 	};
 }
 

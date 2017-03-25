@@ -11,9 +11,15 @@
 #include <string>
 #include <map>
 
+#if defined _USE_WIHTTP_INTERFACE
+#include "winhttp_helper.hpp"
+using namespace winhttp;
+#define HttpClient CWinHttp
+#else
 #include "winnet_helper.hpp"
-
 using namespace winnet;
+#define HttpClient CWinNet
+#endif
 
 namespace RestClient
 {
@@ -33,22 +39,44 @@ namespace RestClient
 		};
 	} Response;
 
-	typedef struct{
+	typedef struct {
 		int timeout;
 		bool followRedirects = true;
 		HeaderFields headers;
+		struct {
+			std::string proxy;
+			std::string username;
+			std::string password;
+		} proxy;
+		struct {
+			std::string username;
+			std::string password;
+		} basicAuth;
+		std::string set_userAgent(const std::string& value)
+		{
+			return this->headers["User-Agent"] = value;
+		};
+		std::string set_cookie(const std::string& value)
+		{
+			return this->headers["Cookie"] = value;
+		};
+		std::string set_referer(const std::string& value)
+		{
+			return this->headers["Referer"] = value;
+		};
 	} Request;
 
-	Request default_request = {3000,true,
+	Request default_request = { 3000,true,
 		{
-			std::make_pair("User-Agent","winnet http client v1.0")
-		} 
+			std::make_pair("User-Agent","restclient for cpp v1.0")
+		}
 	};
 
-	Response get(const std::string& url,Request* request = nullptr) {
+	Response get(const std::string& url, Request* request = nullptr) {
+		
 		Response ret;
 
-		CWinNet http;
+		HttpClient http;
 
 		if (http.Open(url, HTTP_METHOD_GET))
 		{
@@ -66,6 +94,12 @@ namespace RestClient
 					http.SetRequestHeader(kv.first.c_str(), kv.second.c_str());
 			}
 
+			if (!request->proxy.proxy.empty())
+				http.SetProxy(request->proxy.proxy, request->proxy.username, request->proxy.password);
+
+			if (!request->basicAuth.username.empty() && !request->basicAuth.password.empty())
+				http.SetBasicAuthenticator(request->basicAuth.username, request->basicAuth.password);
+
 			if (http.Send())
 			{
 				std::string result;
@@ -76,16 +110,16 @@ namespace RestClient
 				ret.cookies = http.GetCookieStr();
 				ret.Cookie = http.GetCookies();
 				ret.headers = http.GetHeaderFields();
-			}	
+			}
 		}
 		return ret;
 	}
 
 	Response post(const std::string& url, const std::string& content_type, const std::string& data, Request* request = nullptr) {
-		
+
 		Response ret;
 
-		CWinNet http;
+		HttpClient http;
 
 		if (http.Open(url, HTTP_METHOD_POST))
 		{
@@ -105,6 +139,12 @@ namespace RestClient
 					http.SetRequestHeader(kv.first.c_str(), kv.second.c_str());
 			}
 
+			if (!request->proxy.proxy.empty())
+				http.SetProxy(request->proxy.proxy, request->proxy.username, request->proxy.password);
+
+			if (!request->basicAuth.username.empty() && !request->basicAuth.password.empty())
+				http.SetBasicAuthenticator(request->basicAuth.username, request->basicAuth.password);
+
 			if (http.Send((LPVOID)data.c_str(), data.length()))
 			{
 				std::string result;
@@ -121,11 +161,11 @@ namespace RestClient
 	}
 
 	Response put(const std::string& url, const std::string& content_type, const std::string& data, Request* request = nullptr) {
-		
+
 		Response ret;
-		
-		CWinNet http;
-		
+
+		HttpClient http;
+
 		if (http.Open(url, HTTP_METHOD_PUT))
 		{
 			if (request == nullptr)
@@ -144,6 +184,12 @@ namespace RestClient
 					http.SetRequestHeader(kv.first.c_str(), kv.second.c_str());
 			}
 
+			if (!request->proxy.proxy.empty())
+				http.SetProxy(request->proxy.proxy, request->proxy.username, request->proxy.password);
+
+			if (!request->basicAuth.username.empty() && !request->basicAuth.password.empty())
+				http.SetBasicAuthenticator(request->basicAuth.username, request->basicAuth.password);
+
 			if (http.Send((LPVOID)data.c_str(), data.length()))
 			{
 				std::string result;
@@ -160,9 +206,10 @@ namespace RestClient
 	}
 
 	Response del(const std::string& url, Request* request = nullptr) {
+		
 		Response ret;
 
-		CWinNet http;
+		HttpClient http;
 
 		if (http.Open(url, HTTP_METHOD_DELETE))
 		{
@@ -180,6 +227,12 @@ namespace RestClient
 					http.SetRequestHeader(kv.first.c_str(), kv.second.c_str());
 			}
 
+			if (!request->proxy.proxy.empty())
+				http.SetProxy(request->proxy.proxy, request->proxy.username, request->proxy.password);
+
+			if (!request->basicAuth.username.empty() && !request->basicAuth.password.empty())
+				http.SetBasicAuthenticator(request->basicAuth.username, request->basicAuth.password);
+
 			if (http.Send())
 			{
 				std::string result;
@@ -196,9 +249,10 @@ namespace RestClient
 	}
 
 	Response head(const std::string& url, Request* request = nullptr) {
+		
 		Response ret;
 
-		CWinNet http;
+		HttpClient http;
 
 		if (http.Open(url, HTTP_METHOD_HEAD))
 		{
@@ -216,6 +270,12 @@ namespace RestClient
 					http.SetRequestHeader(kv.first.c_str(), kv.second.c_str());
 			}
 
+			if (!request->proxy.proxy.empty())
+				http.SetProxy(request->proxy.proxy, request->proxy.username, request->proxy.password);
+
+			if (!request->basicAuth.username.empty() && !request->basicAuth.password.empty())
+				http.SetBasicAuthenticator(request->basicAuth.username, request->basicAuth.password);
+
 			if (http.Send())
 			{
 				std::string result;
@@ -231,7 +291,5 @@ namespace RestClient
 		return ret;
 	}
 }
-
-
 
 #endif // _WINNET_RESTCLIENT_HPP_INCLUDED_
