@@ -19,7 +19,10 @@ restclient-cpp提供了两种与REST端点交互的方式.
 std::wstring body = textconv_helper::A2W_(response.body.c_str(), CP_UTF8);
 wprintf(L"body = %s \n", body.c_str());
 ```
-
+默认使用的是Winnet Api,切换WinHttp Api
+```cpp
+#define _USE_WIHTTP_INTERFACE
+```
 ### 简单使用
 
 ```cpp
