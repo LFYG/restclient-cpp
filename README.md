@@ -54,7 +54,7 @@ RestClient::Request request;
 request.timeout     	        = 3000;
 request.followRedirects     	= false;
 request.headers["User-Agent"]	= "Mozilla/5.0";
-request.headers["Cookies"]	    = "name=value;";
+request.headers["Cookies"]	  = "name=value;";
 
 RestClient::Response response	= RestClient::get("http://www.baidu.com", &request);
 
@@ -71,12 +71,12 @@ printf("%s %s \n", response.headers["Content-Length"].c_str(), response.get_head
 ```cpp
 RestClient::Request request;
 
-request.timeout					= 3000;
-request.followRedirects			= false;
+request.timeout	= 3000;
+request.followRedirects	= false;
 request.headers["User-Agent"]	= "Mozilla/5.0";
-request.headers["Cookies"]		= "name=value;";
+request.headers["Cookies"] = "name=value;";
 
-RestClient::Response response 	= RestClient::post("http://www.baidu.com/post.php",
+RestClient::Response response = RestClient::post("http://www.baidu.com/post.php",
 "text/json", "{\"foo\": \"bla\"}",&request);
 
 printf("%s \n", response.body.c_str());
@@ -91,17 +91,17 @@ printf("%s \n", response.headers["Content-Length"].c_str());
 ```cpp
 RestClient::Request request;
 
-request.proxy.proxy				= "http=115.29.2.139:80";
-request.proxy.username			= "";
-request.proxy.password			= "";
+request.proxy.proxy = "http=115.29.2.139:80";
+request.proxy.username = "";
+request.proxy.password = "";
 
-//request.basicAuth.username	= "your username";
-//request.basicAuth.password	= "your password";
+//request.basicAuth.username = "your username";
+//request.basicAuth.password = "your password";
 
-request.timeout					= 3000;
-request.followRedirects			= false;
+request.timeout	= 3000;
+request.followRedirects	= false;
 request.headers["User-Agent"]	= "Mozilla/5.0";
-request.headers["Cookie"]		= "name=value;";
+request.headers["Cookie"] = "name=value;";
 
 RestClient::Response response	= RestClient::get("http://ipip.yy.com/get_ip_info.php", &request);
 
