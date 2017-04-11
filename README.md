@@ -12,7 +12,7 @@ C++11
 ## 用法
 restclient-cpp提供了两种与REST端点交互的方式.  
 有一个简单的,不需要你配置,所以如果你需要的不仅仅是一个简单的HTTP调用,  
-你可能会想查看高级用法。还提供了一个编码转换类,  [textconv_helper](https://github.com/LowBoyTeam/restclient-cpp/blob/master/restclient-cpp/textconv_helper.hpp "Title")  
+你可能会想查看高级用法。还提供了一个编码转换类,  [textconv_helper](https://github.com/hpsocket/cpp_utils/blob/master/textconv_helper.hpp "Title")  
 使用方法:
 ```cpp
 //response utf8
